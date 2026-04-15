@@ -657,22 +657,80 @@
     }
     .email-form button:hover { background: var(--red-hover); }
 
+    /* ── HAMBURGER MENU ── */
+    .hamburger {
+      display: none;
+      flex-direction: column;
+      gap: 5px;
+      cursor: pointer;
+      padding: 8px;
+      background: none;
+      border: none;
+    }
+    .hamburger span {
+      display: block;
+      width: 24px;
+      height: 2px;
+      background: var(--white);
+      transition: all 0.3s;
+    }
+    .hamburger.open span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+    .hamburger.open span:nth-child(2) { opacity: 0; }
+    .hamburger.open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+    .mobile-nav {
+      display: none;
+      position: fixed;
+      top: 70px;
+      left: 0;
+      right: 0;
+      background: var(--dark);
+      border-top: 1px solid #2a2a2a;
+      border-bottom: 1px solid #2a2a2a;
+      z-index: 999;
+      padding: 20px;
+      flex-direction: column;
+      gap: 0;
+    }
+    .mobile-nav.open { display: flex; }
+    .mobile-nav a {
+      color: var(--white);
+      text-decoration: none;
+      font-family: var(--font-head);
+      font-size: 18px;
+      padding: 14px 0;
+      border-bottom: 1px solid #2a2a2a;
+      letter-spacing: 0.5px;
+    }
+    .mobile-nav a:last-child { border-bottom: none; }
+    .mobile-nav a.btn-nav-cta {
+      margin-top: 16px;
+      text-align: center;
+      padding: 14px 20px;
+      border-radius: 4px;
+      border-bottom: none;
+    }
+
     /* ── RESPONSIVE ── */
     @media (max-width: 900px) {
       nav { padding: 0 20px; }
       .nav-links { display: none; }
+      .hamburger { display: flex; }
       .steps-grid { grid-template-columns: 1fr; }
       .footer-grid { grid-template-columns: 1fr 1fr; }
       .ba-container { flex-direction: column; }
       .ba-side img { height: 250px; }
       section { padding: 60px 20px; }
       .trust-bar { gap: 20px; padding: 20px; }
+      .hero-content h1 { font-size: 42px; }
     }
     @media (max-width: 600px) {
       .footer-grid { grid-template-columns: 1fr; }
       .email-form { flex-direction: column; }
       .email-form input { border-right: 1px solid #444; border-bottom: none; border-radius: 4px 4px 0 0; }
       .email-form button { border-radius: 0 0 4px 4px; }
+      .hero-content h1 { font-size: 32px; }
+      .trust-bar { flex-direction: column; align-items: flex-start; }
+      .nav-actions .btn-nav-cta { display: none; }
     }
   </style>
 </head>
@@ -700,8 +758,21 @@
     </ul>
     <div class="nav-actions">
       <a href="order.html" class="btn-nav-cta">Send Your Blades →</a>
+      <button class="hamburger" id="hamburgerBtn" aria-label="Toggle menu">
+        <span></span><span></span><span></span>
+      </button>
     </div>
   </nav>
+
+  <!-- MOBILE NAV -->
+  <div class="mobile-nav" id="mobileNav">
+    <a href="#services" onclick="closeMobileNav()">Sharpening Services</a>
+    <a href="#how-it-works" onclick="closeMobileNav()">How It Works</a>
+    <a href="#what-we-sharpen" onclick="closeMobileNav()">What We Sharpen</a>
+    <a href="#reviews" onclick="closeMobileNav()">Reviews</a>
+    <a href="#contact" onclick="closeMobileNav()">Contact</a>
+    <a href="order.html" class="btn-nav-cta">Send Your Blades →</a>
+  </div>
 
   <!-- HERO -->
   <section class="hero">
@@ -1002,5 +1073,26 @@
     </div>
   </footer>
 
+<script>
+  const hamburgerBtn = document.getElementById('hamburgerBtn');
+  const mobileNav = document.getElementById('mobileNav');
+
+  hamburgerBtn.addEventListener('click', () => {
+    hamburgerBtn.classList.toggle('open');
+    mobileNav.classList.toggle('open');
+  });
+
+  function closeMobileNav() {
+    hamburgerBtn.classList.remove('open');
+    mobileNav.classList.remove('open');
+  }
+
+  // Close mobile nav when clicking outside
+  document.addEventListener('click', (e) => {
+    if (!hamburgerBtn.contains(e.target) && !mobileNav.contains(e.target)) {
+      closeMobileNav();
+    }
+  });
+</script>
 </body>
 </html>
