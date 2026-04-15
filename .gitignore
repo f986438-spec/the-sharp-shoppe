@@ -1,0 +1,9 @@
+node_modules/
+.env
+*.log
+docs/
+paypal_credentials.txt
+knifeaid_privacy_raw.html
+knifeaid_privacy.txt
+test-fill.js
+generate_policies.py

@@ -1,0 +1,2042 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Send Your Blades | The Sharp Shoppe</title>
+  <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&family=Oswald:wght@500;700&display=swap" rel="stylesheet">
+  <!-- Stripe.js -->
+  <script src="https://js.stripe.com/v3/"></script>
+  <!-- jsPDF for label generation -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <!-- JsBarcode for USPS-style Code 128 barcodes -->
+  <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
+  <!-- Google Identity Services -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <!-- PayPal JS SDK (Live) -->
+  <script src="https://www.paypal.com/sdk/js?client-id=ARA8pZM6FAdD6UK4Bx9luIpymHz0uNA4g-nS1s6hPNun7RUGYQQ5lc98X2-hZ2y0N8ZRXCKX4YwUNe7z&currency=USD" data-sdk-integration-source="button-factory"></script>
+  <style>
+    :root {
+      --red: #C41230;
+      --red-hover: #a00e27;
+      --dark: #111111;
+      --dark2: #1a1a1a;
+      --dark3: #222222;
+      --mid: #2e2e2e;
+      --border: #333333;
+      --white: #ffffff;
+      --off-white: #f8f8f8;
+      --gray: #888888;
+      --light-gray: #f0f0f0;
+      --green: #2e7d32;
+      --font-head: 'Oswald', sans-serif;
+      --font-body: 'Open Sans', sans-serif;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body { font-family: var(--font-body); background: var(--dark); color: var(--white); min-height: 100vh; }
+
+    /* ── HEADER ── */
+    .site-header {
+      background: var(--dark);
+      border-bottom: 1px solid var(--border);
+      padding: 0 40px;
+      height: 68px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .logo {
+      display: flex; align-items: center; gap: 10px;
+      text-decoration: none; color: var(--white);
+      font-family: var(--font-head); font-size: 22px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 1px;
+    }
+    .logo svg { width: 28px; height: 28px; fill: var(--red); }
+    .back-link {
+      color: var(--gray); font-size: 13px; text-decoration: none;
+      display: flex; align-items: center; gap: 6px;
+      transition: color 0.2s;
+    }
+    .back-link:hover { color: var(--white); }
+
+    /* ── PROGRESS BAR ── */
+    .progress-wrap {
+      background: var(--dark2);
+      border-bottom: 1px solid var(--border);
+      padding: 20px 40px;
+    }
+    .progress-steps {
+      max-width: 700px; margin: 0 auto;
+      display: flex; align-items: center; justify-content: space-between;
+      position: relative;
+    }
+    .progress-steps::before {
+      content: '';
+      position: absolute;
+      top: 18px; left: 18px; right: 18px;
+      height: 2px; background: var(--border); z-index: 0;
+    }
+    .progress-line {
+      position: absolute;
+      top: 18px; left: 18px;
+      height: 2px; background: var(--red);
+      z-index: 1;
+      transition: width 0.4s ease;
+      width: 0%;
+    }
+    .step-item {
+      display: flex; flex-direction: column; align-items: center;
+      gap: 8px; position: relative; z-index: 2; cursor: default;
+    }
+    .step-circle {
+      width: 36px; height: 36px; border-radius: 50%;
+      background: var(--dark3); border: 2px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+      font-family: var(--font-head); font-size: 14px; font-weight: 700;
+      transition: all 0.3s;
+    }
+    .step-item.active .step-circle {
+      background: var(--red); border-color: var(--red); color: var(--white);
+    }
+    .step-item.done .step-circle {
+      background: var(--green); border-color: var(--green); color: var(--white);
+    }
+    .step-label {
+      font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;
+      color: var(--gray); font-family: var(--font-head);
+      white-space: nowrap;
+    }
+    .step-item.active .step-label { color: var(--white); }
+    .step-item.done .step-label { color: var(--green); }
+
+    /* ── MAIN LAYOUT ── */
+    .portal-wrap {
+      max-width: 860px; margin: 0 auto;
+      padding: 50px 20px 80px;
+    }
+
+    /* ── STEP PANELS ── */
+    .step-panel { display: none; animation: fadeIn 0.3s ease; }
+    .step-panel.active { display: block; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+
+    .panel-title {
+      font-family: var(--font-head); font-size: 36px; font-weight: 700;
+      text-transform: uppercase; margin-bottom: 8px;
+    }
+    .panel-title span { color: var(--red); }
+    .panel-sub {
+      color: var(--gray); font-size: 15px; margin-bottom: 40px; line-height: 1.6;
+    }
+
+    /* ── STEP 1: SIGN IN ── */
+    .signin-card {
+      background: var(--dark2); border: 1px solid var(--border);
+      border-radius: 12px; padding: 50px 40px; text-align: center;
+      max-width: 480px; margin: 0 auto;
+    }
+    .signin-card .brand-icon {
+      font-size: 52px; margin-bottom: 20px;
+    }
+    .signin-card h2 {
+      font-family: var(--font-head); font-size: 28px; margin-bottom: 10px;
+    }
+    .signin-card p {
+      color: var(--gray); font-size: 14px; margin-bottom: 36px; line-height: 1.6;
+    }
+    .google-btn {
+      display: flex; align-items: center; justify-content: center; gap: 12px;
+      background: var(--white); color: #333;
+      border: none; border-radius: 8px;
+      padding: 14px 28px; font-size: 15px; font-weight: 600;
+      cursor: pointer; width: 100%; margin-bottom: 16px;
+      transition: box-shadow 0.2s; font-family: var(--font-body);
+    }
+    .google-btn:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.3); }
+    .google-btn svg { width: 20px; height: 20px; }
+    .divider { display: flex; align-items: center; gap: 12px; margin: 20px 0; color: var(--gray); font-size: 13px; }
+    .divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+    .guest-form { text-align: left; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
+    .form-row.single { grid-template-columns: 1fr; }
+    .form-group { display: flex; flex-direction: column; gap: 6px; }
+    .form-group label { font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--gray); font-family: var(--font-head); }
+    .form-group input, .form-group select {
+      background: var(--dark3); border: 1px solid var(--border);
+      color: var(--white); padding: 12px 14px; border-radius: 8px;
+      font-size: 14px; font-family: var(--font-body);
+      transition: border-color 0.2s; outline: none;
+    }
+    .form-group input:focus, .form-group select:focus { border-color: var(--red); }
+    .form-group input::placeholder { color: #555; }
+    .form-group select option { background: var(--dark3); }
+
+    /* ── STEP 2: SERVICES ── */
+    .services-list { display: flex; flex-direction: column; gap: 14px; }
+    .service-row {
+      background: var(--dark2); border: 1px solid var(--border);
+      border-radius: 12px; padding: 20px 24px;
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 16px; transition: border-color 0.2s;
+    }
+    .service-row.has-items { border-color: var(--red); }
+    .service-row.exotic-row { border-color: #555; background: rgba(196,18,48,0.05); }
+    .service-info { display: flex; align-items: center; gap: 16px; flex: 1; }
+    .service-emoji { font-size: 32px; width: 44px; text-align: center; flex-shrink: 0; }
+    .service-text h3 { font-family: var(--font-head); font-size: 18px; margin-bottom: 2px; }
+    .service-text p { font-size: 12px; color: var(--gray); line-height: 1.4; }
+    .service-price-tag {
+      font-family: var(--font-head); font-size: 18px; color: var(--red);
+      min-width: 90px; text-align: right; flex-shrink: 0;
+    }
+    .qty-control {
+      display: flex; align-items: center; gap: 0; flex-shrink: 0;
+    }
+    .qty-btn {
+      width: 38px; height: 38px; border-radius: 8px;
+      border: 1px solid var(--border); background: var(--dark3);
+      color: var(--white); font-size: 20px; font-weight: 700;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      transition: all 0.15s; user-select: none; line-height: 1;
+    }
+    .qty-btn:hover { background: var(--red); border-color: var(--red); }
+    .qty-btn:active { transform: scale(0.92); }
+    .qty-btn.minus { border-radius: 8px 0 0 8px; }
+    .qty-btn.plus  { border-radius: 0 8px 8px 0; }
+    .qty-display {
+      width: 52px; height: 38px;
+      background: var(--dark); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
+      color: var(--white); font-family: var(--font-head); font-size: 18px; font-weight: 700;
+      text-align: center; display: flex; align-items: center; justify-content: center;
+    }
+    .exotic-cta {
+      display: inline-block; margin-top: 8px;
+      color: var(--red); font-size: 13px; text-decoration: underline; cursor: pointer;
+    }
+
+    /* ORDER SUMMARY SIDEBAR */
+    .order-layout { display: grid; grid-template-columns: 1fr 300px; gap: 30px; align-items: start; }
+    .order-summary-box {
+      background: var(--dark2); border: 1px solid var(--border);
+      border-radius: 12px; padding: 24px; position: sticky; top: 90px;
+    }
+    .order-summary-box h4 {
+      font-family: var(--font-head); font-size: 18px; margin-bottom: 20px;
+      padding-bottom: 14px; border-bottom: 1px solid var(--border);
+    }
+    .summary-line {
+      display: flex; justify-content: space-between; align-items: center;
+      font-size: 13px; padding: 6px 0; color: rgba(255,255,255,0.75);
+    }
+    .summary-line.total {
+      border-top: 1px solid var(--border); margin-top: 12px; padding-top: 14px;
+      font-family: var(--font-head); font-size: 20px; color: var(--white);
+    }
+    .summary-line.total span:last-child { color: var(--red); }
+    .summary-empty { color: var(--gray); font-size: 13px; text-align: center; padding: 20px 0; }
+    .promo-wrap { margin-top: 16px; }
+    .promo-input-row { display: flex; gap: 8px; }
+    .promo-input-row input {
+      flex: 1; background: var(--dark3); border: 1px solid var(--border);
+      color: var(--white); padding: 10px 12px; border-radius: 8px;
+      font-size: 13px; font-family: var(--font-body); outline: none;
+    }
+    .promo-input-row input:focus { border-color: var(--red); }
+    .promo-apply-btn {
+      background: var(--mid); border: 1px solid var(--border); color: var(--white);
+      padding: 10px 14px; border-radius: 8px; font-size: 12px;
+      font-family: var(--font-head); cursor: pointer; white-space: nowrap;
+      transition: background 0.2s;
+    }
+    .promo-apply-btn:hover { background: var(--red); border-color: var(--red); }
+    .promo-msg { font-size: 12px; margin-top: 8px; }
+    .promo-msg.success { color: #4caf50; }
+    .promo-msg.error { color: #f44336; }
+    .discount-line { color: #4caf50; }
+
+    /* ── STEP 3: PAYMENT ── */
+    .payment-grid { display: grid; grid-template-columns: 1fr 300px; gap: 30px; align-items: start; }
+    .payment-form-box {
+      background: var(--dark2); border: 1px solid var(--border);
+      border-radius: 12px; padding: 30px;
+    }
+    .payment-form-box h3 {
+      font-family: var(--font-head); font-size: 20px; margin-bottom: 24px;
+    }
+    .card-icons { display: flex; gap: 8px; margin-bottom: 20px; }
+    .card-icon {
+      background: var(--white); border-radius: 4px; padding: 4px 8px;
+      font-size: 11px; font-weight: 700; color: #333; letter-spacing: 0.5px;
+    }
+    #card-number-element, #card-expiry-element, #card-cvc-element {
+      background: var(--dark3); border: 1px solid var(--border);
+      border-radius: 8px; padding: 14px;
+      transition: border-color 0.2s;
+    }
+    #card-number-element.StripeElement--focus,
+    #card-expiry-element.StripeElement--focus,
+    #card-cvc-element.StripeElement--focus { border-color: var(--red); }
+    #card-errors { color: #f44336; font-size: 13px; margin-top: 10px; min-height: 20px; }
+    .billing-section { margin-top: 24px; }
+    .billing-section h4 { font-family: var(--font-head); font-size: 16px; margin-bottom: 16px; color: var(--gray); }
+    .secure-badge {
+      display: flex; align-items: center; gap: 8px;
+      color: var(--gray); font-size: 12px; margin-top: 20px;
+    }
+    .secure-badge svg { width: 16px; height: 16px; fill: var(--gray); }
+
+    /* ── PAYMENT METHOD TABS ── */
+    .pay-method-tabs {
+      display: flex; gap: 0; margin-bottom: 24px;
+      border: 1px solid var(--border); border-radius: 10px; overflow: hidden;
+    }
+    .pay-method-tab {
+      flex: 1; padding: 14px 10px; text-align: center;
+      background: var(--dark3); border: none; color: var(--gray);
+      font-family: var(--font-head); font-size: 14px; font-weight: 600;
+      cursor: pointer; transition: all 0.2s;
+      border-right: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+    }
+    .pay-method-tab:last-child { border-right: none; }
+    .pay-method-tab:hover { background: var(--mid); color: var(--white); }
+    .pay-method-tab.active {
+      background: var(--red); color: var(--white); border-color: var(--red);
+    }
+    .pay-method-tab svg, .pay-method-tab img { width: 20px; height: 20px; }
+    .pay-method-content { display: none; }
+    .pay-method-content.active { display: block; }
+
+    /* PayPal section */
+    #paypal-button-container { min-height: 50px; margin-top: 10px; }
+    .paypal-info {
+      text-align: center; color: var(--gray); font-size: 13px;
+      margin-top: 16px; line-height: 1.6;
+    }
+
+    /* Crypto section */
+    .crypto-options { display: flex; flex-direction: column; gap: 16px; }
+    .crypto-info-box {
+      background: rgba(247,147,26,0.08); border: 1px solid rgba(247,147,26,0.25);
+      border-radius: 10px; padding: 20px; text-align: center;
+    }
+    .crypto-info-box h4 {
+      font-family: var(--font-head); font-size: 18px; margin-bottom: 8px;
+      color: #f7931a;
+    }
+    .crypto-info-box p { font-size: 13px; color: var(--gray); line-height: 1.6; margin-bottom: 16px; }
+    .crypto-coins {
+      display: flex; justify-content: center; gap: 16px; margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+    .crypto-coin {
+      display: flex; flex-direction: column; align-items: center; gap: 4px;
+      font-size: 11px; color: var(--gray);
+    }
+    .crypto-coin-icon {
+      width: 36px; height: 36px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px; font-weight: 700;
+    }
+    .btn-crypto {
+      background: #f7931a; color: #fff; border: none; border-radius: 8px;
+      padding: 14px 28px; font-size: 15px; font-weight: 700;
+      font-family: var(--font-head); text-transform: uppercase;
+      letter-spacing: 1px; cursor: pointer; transition: background 0.2s;
+      display: inline-flex; align-items: center; gap: 8px;
+    }
+    .btn-crypto:hover { background: #e8851a; }
+    .btn-crypto:disabled { background: #555; cursor: not-allowed; }
+    .crypto-status { font-size: 13px; color: var(--gray); margin-top: 12px; text-align: center; }
+
+    /* Order review box */
+    .review-box {
+      background: var(--dark2); border: 1px solid var(--border);
+      border-radius: 12px; padding: 24px;
+    }
+    .review-box h4 {
+      font-family: var(--font-head); font-size: 18px; margin-bottom: 16px;
+    }
+    .review-item {
+      display: flex; justify-content: space-between;
+      font-size: 13px; padding: 8px 0;
+      border-bottom: 1px solid var(--border);
+      color: rgba(255,255,255,0.8);
+    }
+    .review-item:last-of-type { border-bottom: none; }
+    .review-total {
+      display: flex; justify-content: space-between;
+      font-family: var(--font-head); font-size: 20px;
+      padding-top: 14px; margin-top: 4px;
+      border-top: 2px solid var(--border);
+    }
+    .review-total span:last-child { color: var(--red); }
+
+    /* ── STEP 4: LABEL ── */
+    .success-header {
+      text-align: center; margin-bottom: 40px;
+    }
+    .success-icon {
+      width: 80px; height: 80px; border-radius: 50%;
+      background: rgba(46,125,50,0.15); border: 2px solid var(--green);
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 20px; font-size: 36px;
+    }
+    .label-card {
+      background: var(--white); color: #111;
+      border-radius: 12px; padding: 0;
+      width: 100%; max-width: 680px; margin: 0 auto 30px;
+      font-family: var(--font-body);
+      box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+      overflow: hidden;
+    }
+    /* Red header band */
+    .label-header-band {
+      background: var(--red);
+      padding: 18px 28px;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .label-logo-text {
+      font-family: var(--font-head); font-size: 22px; font-weight: 700;
+      text-transform: uppercase; color: #fff; letter-spacing: 1px;
+    }
+    .label-logo-sub { font-size: 12px; color: rgba(255,255,255,0.85); margin-top: 3px; }
+    .label-order-badge {
+      background: rgba(0,0,0,0.25); color: #fff;
+      padding: 6px 14px; border-radius: 6px;
+      font-family: monospace; font-size: 12px; font-weight: 700;
+      letter-spacing: 1px; white-space: nowrap;
+    }
+    /* Body */
+    .label-body { padding: 28px 28px 0; }
+    /* Addresses row */
+    .label-to-from {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 24px;
+      margin-bottom: 20px;
+    }
+    .label-section { }
+    .label-section-title {
+      font-size: 10px; text-transform: uppercase; letter-spacing: 1.5px;
+      color: #888; margin-bottom: 8px; font-weight: 700;
+    }
+    .label-address { font-size: 15px; line-height: 1.65; font-weight: 600; color: #111; }
+    /* Barcode strip */
+    .label-barcode-strip {
+      background: #f5f5f5; border-top: 1px solid #e0e0e0; border-bottom: 1px solid #e0e0e0;
+      padding: 14px 28px;
+      display: flex; align-items: center; justify-content: space-between; gap: 20px;
+    }
+    .label-barcode-wrap {
+      flex: 1;
+    }
+    .label-barcode-wrap svg, .label-barcode-wrap canvas {
+      width: 100% !important; max-width: 380px; height: 60px;
+      display: block;
+    }
+    .label-tracking-num {
+      font-family: monospace; font-size: 11px; color: #555; margin-top: 4px;
+      letter-spacing: 1px;
+    }
+    .label-stamp {
+      background: var(--red); color: white;
+      padding: 10px 18px; border-radius: 8px;
+      font-family: var(--font-head); font-size: 13px; font-weight: 700;
+      text-align: center; line-height: 1.4; flex-shrink: 0;
+      min-width: 110px;
+    }
+    .label-stamp .stamp-carrier { font-size: 18px; }
+    .label-stamp .stamp-service { font-size: 11px; opacity: 0.9; }
+    .label-stamp .stamp-date { font-size: 10px; opacity: 0.75; margin-top: 2px; }
+    /* Items + total */
+    .label-items-section { padding: 18px 28px; border-top: 1px solid #e0e0e0; }
+    .label-items-title {
+      font-size: 10px; text-transform: uppercase; letter-spacing: 1.5px;
+      color: #888; margin-bottom: 10px; font-weight: 700;
+    }
+    .label-items-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .label-items-table th {
+      text-align: left; color: #888; font-size: 10px; text-transform: uppercase;
+      letter-spacing: 1px; padding-bottom: 6px; border-bottom: 1px solid #eee;
+    }
+    .label-items-table td { padding: 5px 0; color: #222; border-bottom: 1px solid #f0f0f0; }
+    .label-items-table td:last-child { text-align: right; font-weight: 600; }
+    .label-total-row td {
+      padding-top: 10px; font-weight: 700; font-size: 15px;
+      color: var(--red); border-bottom: none;
+    }
+    /* Shipping info row */
+    .label-shipping-info {
+      display: flex; gap: 24px; flex-wrap: wrap;
+      padding: 14px 28px; background: #f9f9f9;
+      border-top: 1px solid #e0e0e0; font-size: 12px; color: #555;
+    }
+    .label-shipping-info span strong { color: #111; }
+    /* Footer strip */
+    .label-footer-strip {
+      background: #efefef; border-top: 1px solid #ddd;
+      padding: 12px 28px;
+      font-size: 11px; color: #666; font-style: italic;
+      line-height: 1.6;
+    }
+    /* Shippo live label embed */
+    .label-live-embed {
+      padding: 20px 28px;
+      border-top: 1px solid #e0e0e0;
+      text-align: center;
+    }
+    .label-live-embed a {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: var(--red); color: #fff;
+      padding: 12px 28px; border-radius: 8px;
+      font-family: var(--font-head); font-size: 14px; font-weight: 700;
+      text-decoration: none; text-transform: uppercase; letter-spacing: 1px;
+    }
+    .label-live-embed a:hover { background: var(--red-hover); }
+    .label-live-note { font-size: 12px; color: #888; margin-top: 8px; }
+    .label-actions {
+      display: flex; gap: 14px; justify-content: center; flex-wrap: wrap;
+    }
+
+    /* ── BUTTONS ── */
+    .btn-primary {
+      background: var(--red); color: var(--white);
+      border: none; border-radius: 8px;
+      padding: 15px 32px; font-size: 15px; font-weight: 700;
+      font-family: var(--font-head); text-transform: uppercase;
+      letter-spacing: 1px; cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+      display: inline-flex; align-items: center; gap: 8px;
+    }
+    .btn-primary:hover { background: var(--red-hover); }
+    .btn-primary:active { transform: scale(0.98); }
+    .btn-primary:disabled { background: #555; cursor: not-allowed; }
+    .btn-outline {
+      background: transparent; color: var(--white);
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 14px 28px; font-size: 14px; font-weight: 600;
+      font-family: var(--font-head); text-transform: uppercase;
+      letter-spacing: 0.5px; cursor: pointer;
+      transition: border-color 0.2s, color 0.2s;
+    }
+    .btn-outline:hover { border-color: var(--white); }
+    .btn-download {
+      background: var(--dark2); color: var(--white);
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 14px 24px; font-size: 14px; font-weight: 600;
+      font-family: var(--font-head); text-transform: uppercase;
+      letter-spacing: 0.5px; cursor: pointer;
+      transition: background 0.2s;
+      display: inline-flex; align-items: center; gap: 8px;
+    }
+    .btn-download:hover { background: var(--mid); }
+    .step-nav {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-top: 36px; padding-top: 24px; border-top: 1px solid var(--border);
+    }
+    .step-nav.end { justify-content: flex-end; }
+
+    /* ── ALERTS ── */
+    .alert {
+      padding: 14px 18px; border-radius: 8px; font-size: 14px;
+      margin-bottom: 20px; display: flex; align-items: flex-start; gap: 10px;
+    }
+    .alert-info { background: rgba(33,150,243,0.1); border: 1px solid rgba(33,150,243,0.3); color: #90caf9; }
+    .alert-warn { background: rgba(255,152,0,0.1); border: 1px solid rgba(255,152,0,0.3); color: #ffcc80; }
+
+    /* ── SPINNER ── */
+    .spinner {
+      display: inline-block; width: 18px; height: 18px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: var(--white); border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 700px) {
+      .order-layout, .payment-grid { grid-template-columns: 1fr; }
+      .order-summary-box, .review-box { position: static; }
+      .label-to-from { grid-template-columns: 1fr; }
+      .form-row { grid-template-columns: 1fr; }
+      .site-header { padding: 0 20px; }
+      .portal-wrap { padding: 30px 16px 60px; }
+      .progress-wrap { padding: 16px 20px; }
+      .step-label { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="site-header">
+  <a href="index.html" class="logo">
+    <svg viewBox="0 0 24 24"><path d="M20.71 3.29a1 1 0 0 0-1.42 0l-3 3a1 1 0 0 0 0 1.42l.29.29-8.29 8.29A1 1 0 0 0 8 17v3a1 1 0 0 0 1 1h3a1 1 0 0 0 .71-.29l8.29-8.29.29.29a1 1 0 0 0 1.42 0l3-3a1 1 0 0 0 0-1.42zM11.59 19H10v-1.59l8-8L19.59 11z"/></svg>
+    The Sharp Shoppe
+  </a>
+  <a href="index.html" class="back-link">
+    <svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:currentColor"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+    Back to Home
+  </a>
+</header>
+
+<!-- PROGRESS BAR -->
+<div class="progress-wrap">
+  <div class="progress-steps" id="progressSteps">
+    <div class="progress-line" id="progressLine"></div>
+    <div class="step-item active" data-step="1">
+      <div class="step-circle">1</div>
+      <div class="step-label">Your Info</div>
+    </div>
+    <div class="step-item" data-step="2">
+      <div class="step-circle">2</div>
+      <div class="step-label">Select Services</div>
+    </div>
+    <div class="step-item" data-step="3">
+      <div class="step-circle">3</div>
+      <div class="step-label">Payment</div>
+    </div>
+    <div class="step-item" data-step="4">
+      <div class="step-circle">4</div>
+      <div class="step-label">Mailing Label</div>
+    </div>
+  </div>
+</div>
+
+<!-- PORTAL CONTENT -->
+<div class="portal-wrap">
+
+  <!-- ══════════════════════════════════════════
+       STEP 1 — YOUR INFO
+  ══════════════════════════════════════════ -->
+  <div class="step-panel active" id="step1">
+    <div class="signin-card">
+      <div class="brand-icon">🔪</div>
+      <h2>Let's Get Started</h2>
+      <p>Sign in with Google for a faster checkout experience, or continue as a guest. Your info is saved securely for future orders.</p>
+
+      <!-- Google Sign-In Button (rendered by GSI) -->
+      <div id="g_id_onload"
+           data-client_id="YOUR_GOOGLE_CLIENT_ID"
+           data-callback="handleGoogleSignIn"
+           data-auto_prompt="false">
+      </div>
+      <button class="google-btn" onclick="triggerGoogleSignIn()">
+        <svg viewBox="0 0 48 48">
+          <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+          <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+          <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+          <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+          <path fill="none" d="M0 0h48v48H0z"/>
+        </svg>
+        Continue with Google
+      </button>
+
+      <div class="divider">or continue as guest</div>
+
+      <div class="guest-form">
+        <div class="form-row">
+          <div class="form-group">
+            <label>First Name *</label>
+            <input type="text" id="firstName" placeholder="Jane" required>
+          </div>
+          <div class="form-group">
+            <label>Last Name *</label>
+            <input type="text" id="lastName" placeholder="Smith" required>
+          </div>
+        </div>
+        <div class="form-row single">
+          <div class="form-group">
+            <label>Email Address *</label>
+            <input type="email" id="emailAddr" placeholder="jane@example.com" required>
+          </div>
+        </div>
+        <div class="form-row single">
+          <div class="form-group">
+            <label>Phone Number</label>
+            <input type="tel" id="phoneNum" placeholder="(555) 000-0000">
+          </div>
+        </div>
+        <div class="form-row single">
+          <div class="form-group">
+            <label>Street Address *</label>
+            <input type="text" id="addrLine1" placeholder="123 Main Street" required>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>City *</label>
+            <input type="text" id="addrCity" placeholder="Springfield" required>
+          </div>
+          <div class="form-group">
+            <label>State *</label>
+            <select id="addrState">
+              <option value="">Select...</option>
+              <option>AL</option><option>AK</option><option>AZ</option><option>AR</option>
+              <option>CA</option><option>CO</option><option>CT</option><option>DE</option>
+              <option>FL</option><option>GA</option><option>HI</option><option>ID</option>
+              <option>IL</option><option>IN</option><option>IA</option><option>KS</option>
+              <option>KY</option><option>LA</option><option>ME</option><option>MD</option>
+              <option>MA</option><option>MI</option><option>MN</option><option>MS</option>
+              <option>MO</option><option>MT</option><option>NE</option><option>NV</option>
+              <option>NH</option><option>NJ</option><option>NM</option><option>NY</option>
+              <option>NC</option><option>ND</option><option>OH</option><option>OK</option>
+              <option>OR</option><option>PA</option><option>RI</option><option>SC</option>
+              <option>SD</option><option>TN</option><option>TX</option><option>UT</option>
+              <option>VT</option><option>VA</option><option>WA</option><option>WV</option>
+              <option>WI</option><option>WY</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row single">
+          <div class="form-group">
+            <label>ZIP Code *</label>
+            <input type="text" id="addrZip" placeholder="12345" maxlength="10" required>
+          </div>
+        </div>
+
+        <div class="alert alert-info" style="margin-top:20px;">
+          <svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:currentColor;flex-shrink:0"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
+          <span>Your information is saved securely. We may use it to send you exclusive sharpening deals and promotions.</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="step-nav end" style="max-width:480px;margin:0 auto;">
+      <button class="btn-primary" onclick="goToStep(2)">
+        Continue to Services
+        <svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:currentColor"><path d="M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8z"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       STEP 2 — SELECT SERVICES
+  ══════════════════════════════════════════ -->
+  <div class="step-panel" id="step2">
+    <h1 class="panel-title">Select <span>Services</span></h1>
+    <p class="panel-sub">Use the + and − buttons to add the number of items per category. Your order total updates in real time.</p>
+
+    <div class="order-layout">
+      <!-- SERVICE ROWS -->
+      <div>
+        <div class="services-list" id="servicesList">
+
+          <div class="service-row" data-service="Hair Cutting Shears" data-price="25" data-unit="per shear">
+            <div class="service-info">
+              <div class="service-emoji">✂️</div>
+              <div class="service-text">
+                <h3>Hair Cutting Shears</h3>
+                <p>Cutting, blending, curved &amp; thinning shears</p>
+              </div>
+            </div>
+            <div class="service-price-tag">$25 / ea</div>
+            <div class="qty-control">
+              <button class="qty-btn minus" onclick="changeQty(this, -1)">−</button>
+              <div class="qty-display">0</div>
+              <button class="qty-btn plus" onclick="changeQty(this, 1)">+</button>
+            </div>
+          </div>
+
+          <div class="service-row" data-service="Kitchen Knives" data-price="12" data-unit="per knife">
+            <div class="service-info">
+              <div class="service-emoji">🔪</div>
+              <div class="service-text">
+                <h3>Kitchen Knives</h3>
+                <p>Chef, cleaver, paring &amp; specialty blades</p>
+              </div>
+            </div>
+            <div class="service-price-tag">$12 / ea</div>
+            <div class="qty-control">
+              <button class="qty-btn minus" onclick="changeQty(this, -1)">−</button>
+              <div class="qty-display">0</div>
+              <button class="qty-btn plus" onclick="changeQty(this, 1)">+</button>
+            </div>
+          </div>
+
+          <div class="service-row" data-service="Chainsaw Chains" data-price="20" data-unit="per chain">
+            <div class="service-info">
+              <div class="service-emoji">🪚</div>
+              <div class="service-text">
+                <h3>Chainsaw Chains</h3>
+                <p>All chain types — cut faster, safer, longer</p>
+              </div>
+            </div>
+            <div class="service-price-tag">$20 / ea</div>
+            <div class="qty-control">
+              <button class="qty-btn minus" onclick="changeQty(this, -1)">−</button>
+              <div class="qty-display">0</div>
+              <button class="qty-btn plus" onclick="changeQty(this, 1)">+</button>
+            </div>
+          </div>
+
+          <div class="service-row" data-service="Lawn &amp; Garden Tools" data-price="15" data-unit="per tool">
+            <div class="service-info">
+              <div class="service-emoji">🌿</div>
+              <div class="service-text">
+                <h3>Lawn &amp; Garden Tools</h3>
+                <p>Mower blades, pruners, loppers &amp; more</p>
+              </div>
+            </div>
+            <div class="service-price-tag">$15 / ea</div>
+            <div class="qty-control">
+              <button class="qty-btn minus" onclick="changeQty(this, -1)">−</button>
+              <div class="qty-display">0</div>
+              <button class="qty-btn plus" onclick="changeQty(this, 1)">+</button>
+            </div>
+          </div>
+
+          <div class="service-row" data-service="Fabric &amp; Craft Shears" data-price="15" data-unit="per shear">
+            <div class="service-info">
+              <div class="service-emoji">🪡</div>
+              <div class="service-text">
+                <h3>Fabric &amp; Craft Shears</h3>
+                <p>Fabric scissors, pinking shears &amp; craft blades</p>
+              </div>
+            </div>
+            <div class="service-price-tag">$15 / ea</div>
+            <div class="qty-control">
+              <button class="qty-btn minus" onclick="changeQty(this, -1)">−</button>
+              <div class="qty-display">0</div>
+              <button class="qty-btn plus" onclick="changeQty(this, 1)">+</button>
+            </div>
+          </div>
+
+          <div class="service-row" data-service="Axes &amp; Tactical Blades" data-price="18" data-unit="per blade">
+            <div class="service-info">
+              <div class="service-emoji">🪓</div>
+              <div class="service-text">
+                <h3>Axes &amp; Tactical Blades</h3>
+                <p>Axes, hatchets &amp; fixed-blade knives</p>
+              </div>
+            </div>
+            <div class="service-price-tag">$18 / ea</div>
+            <div class="qty-control">
+              <button class="qty-btn minus" onclick="changeQty(this, -1)">−</button>
+              <div class="qty-display">0</div>
+              <button class="qty-btn plus" onclick="changeQty(this, 1)">+</button>
+            </div>
+          </div>
+
+          <div class="service-row" data-service="Pocket &amp; Folding Knives" data-price="10" data-unit="per knife">
+            <div class="service-info">
+              <div class="service-emoji">🗡️</div>
+              <div class="service-text">
+                <h3>Pocket &amp; Folding Knives</h3>
+                <p>EDC, hunting &amp; folding blade sharpening</p>
+              </div>
+            </div>
+            <div class="service-price-tag">$10 / ea</div>
+            <div class="qty-control">
+              <button class="qty-btn minus" onclick="changeQty(this, -1)">−</button>
+              <div class="qty-display">0</div>
+              <button class="qty-btn plus" onclick="changeQty(this, 1)">+</button>
+            </div>
+          </div>
+
+          <div class="service-row" data-service="Scissors (General)" data-price="8" data-unit="per pair">
+            <div class="service-info">
+              <div class="service-emoji">✂️</div>
+              <div class="service-text">
+                <h3>Scissors (General)</h3>
+                <p>Household, office &amp; kids scissors</p>
+              </div>
+            </div>
+            <div class="service-price-tag">$8 / ea</div>
+            <div class="qty-control">
+              <button class="qty-btn minus" onclick="changeQty(this, -1)">−</button>
+              <div class="qty-display">0</div>
+              <button class="qty-btn plus" onclick="changeQty(this, 1)">+</button>
+            </div>
+          </div>
+
+          <!-- EXOTIC — no qty, contact only -->
+          <div class="service-row exotic-row">
+            <div class="service-info">
+              <div class="service-emoji">⚔️</div>
+              <div class="service-text">
+                <h3>Exotic &amp; Collector Blades</h3>
+                <p>Damascus, Japanese, hand-forged &amp; specialty blades</p>
+                <span class="exotic-cta" onclick="window.location='mailto:thesharpshoppe@gmail.com?subject=Exotic Blade Quote'">
+                  📧 Contact for Custom Pricing →
+                </span>
+              </div>
+            </div>
+            <div class="service-price-tag" style="color:#888;font-size:14px;">Custom Quote</div>
+            <div style="width:128px;text-align:center;font-size:12px;color:#666;">Email us for pricing</div>
+          </div>
+
+        </div><!-- /services-list -->
+
+        <div class="alert alert-warn" style="margin-top:20px;">
+          <svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:currentColor;flex-shrink:0"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>
+          <span><strong>Minimum order: $20.</strong> Pack all items securely — we'll include packing tips in your mailing label PDF.</span>
+        </div>
+      </div>
+
+      <!-- ORDER SUMMARY -->
+      <div class="order-summary-box">
+        <h4>🛒 Order Summary</h4>
+        <div id="summaryLines">
+          <div class="summary-empty" id="summaryEmpty">No items selected yet.</div>
+        </div>
+        <div class="summary-line total" id="summaryTotal" style="display:none;">
+          <span>Total</span>
+          <span id="totalDisplay">$0.00</span>
+        </div>
+
+        <!-- Promo Code -->
+        <div class="promo-wrap">
+          <div class="promo-input-row">
+            <input type="text" id="promoCode" placeholder="Promo code" style="text-transform:uppercase;">
+            <button class="promo-apply-btn" onclick="applyPromo()">Apply</button>
+          </div>
+          <div class="promo-msg" id="promoMsg"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="step-nav">
+      <button class="btn-outline" onclick="goToStep(1)">← Back</button>
+      <button class="btn-primary" onclick="goToStep(3)" id="toPaymentBtn">
+        Continue to Payment
+        <svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:currentColor"><path d="M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8z"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       STEP 3 — PAYMENT
+  ══════════════════════════════════════════ -->
+  <div class="step-panel" id="step3">
+    <h1 class="panel-title">Secure <span>Payment</span></h1>
+    <p class="panel-sub">Your payment is processed securely. We never store your card details.</p>
+
+    <div class="payment-grid">
+      <!-- PAYMENT FORM -->
+      <div class="payment-form-box">
+
+        <!-- ── PAYMENT METHOD TABS ── -->
+        <div class="pay-method-tabs">
+          <button class="pay-method-tab active" onclick="switchPayMethod('card')" id="tabCard">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"/></svg>
+            Credit / Debit
+          </button>
+          <button class="pay-method-tab" onclick="switchPayMethod('paypal')" id="tabPaypal">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M7.076 21.337H2.47a.641.641 0 0 1-.633-.74L4.944.901C5.026.382 5.474 0 5.998 0h7.46c2.57 0 4.578.543 5.69 1.81 1.01 1.15 1.304 2.42 1.012 4.287-.023.143-.047.288-.077.437-.983 5.05-4.349 6.797-8.647 6.797H9.603c-.564 0-1.04.408-1.13.964L7.076 21.337z"/></svg>
+            PayPal
+          </button>
+          <button class="pay-method-tab" onclick="switchPayMethod('crypto')" id="tabCrypto">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M11.5 11.5v-2h1c.55 0 1 .45 1 1s-.45 1-1 1h-1zm0 1h1c.55 0 1 .45 1 1s-.45 1-1 1h-1v-2zm6.5.5c0 4.14-3.36 7.5-7.5 7.5S3 17.14 3 13 6.36 5.5 10.5 5.5 18 8.86 18 13zm-5-3.5h-2V8h-1v1.5h-1V8h-1v1.5H7v1h1v5H7v1h1V18h1v-1.5h1V18h1v-1.5h.5c1.38 0 2.5-1.12 2.5-2.5 0-.89-.47-1.67-1.17-2.11.42-.38.67-.93.67-1.52 0-1.1-.74-2.03-1.75-2.33V9.5h.25z"/></svg>
+            Crypto
+          </button>
+        </div>
+
+        <!-- ── CARD PAYMENT (Stripe) ── -->
+        <div class="pay-method-content active" id="payCard">
+          <h3>💳 Card Details</h3>
+          <div class="card-icons">
+            <span class="card-icon">VISA</span>
+            <span class="card-icon">MC</span>
+            <span class="card-icon">AMEX</span>
+            <span class="card-icon">DISC</span>
+          </div>
+
+          <!-- Stripe Split Card Elements -->
+          <div class="form-row single" style="margin-bottom:14px;">
+            <div class="form-group">
+              <label>Card Number *</label>
+              <div id="card-number-element" style="background:var(--dark3);border:1px solid var(--border);border-radius:8px;padding:14px;transition:border-color 0.2s;"></div>
+            </div>
+          </div>
+          <div class="form-row" style="margin-bottom:14px;">
+            <div class="form-group">
+              <label>Expiration Date *</label>
+              <div id="card-expiry-element" style="background:var(--dark3);border:1px solid var(--border);border-radius:8px;padding:14px;transition:border-color 0.2s;"></div>
+            </div>
+            <div class="form-group">
+              <label>Security Code (CVV) *</label>
+              <div id="card-cvc-element" style="background:var(--dark3);border:1px solid var(--border);border-radius:8px;padding:14px;transition:border-color 0.2s;"></div>
+            </div>
+          </div>
+          <div id="card-errors"></div>
+
+          <div class="billing-section">
+            <h4>Billing Address</h4>
+            <div class="form-row single">
+              <div class="form-group">
+                <label>Name on Card *</label>
+                <input type="text" id="cardName" placeholder="Jane Smith">
+              </div>
+            </div>
+            <div id="billingSameWrap">
+              <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:14px;color:rgba(255,255,255,0.8);margin-bottom:14px;">
+                <input type="checkbox" id="billingSame" checked onchange="toggleBillingFields()" style="width:16px;height:16px;accent-color:var(--red);">
+                Same as shipping address
+              </label>
+            </div>
+            <div id="billingFields" style="display:none;">
+              <div class="form-row single">
+                <div class="form-group">
+                  <label>Billing Street *</label>
+                  <input type="text" id="billStreet" placeholder="123 Main Street">
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label>City *</label>
+                  <input type="text" id="billCity" placeholder="Springfield">
+                </div>
+                <div class="form-group">
+                  <label>ZIP *</label>
+                  <input type="text" id="billZip" placeholder="12345">
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="secure-badge">
+            <svg viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z"/></svg>
+            256-bit SSL encryption &middot; Powered by Stripe
+          </div>
+        </div>
+
+        <!-- ── PAYPAL PAYMENT ── -->
+        <div class="pay-method-content" id="payPaypal">
+          <h3 style="margin-bottom:16px;">🅿 Pay with PayPal</h3>
+          <p style="color:var(--gray);font-size:14px;margin-bottom:20px;line-height:1.6;">
+            Click the button below to pay securely with your PayPal account, debit card, or credit card through PayPal.
+          </p>
+          <div id="paypal-button-container"></div>
+          <div class="paypal-info">
+            <svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:var(--gray);vertical-align:middle;"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z"/></svg>
+            Secure checkout powered by PayPal
+          </div>
+        </div>
+
+        <!-- ── CRYPTO PAYMENT (Coinbase Commerce) ── -->
+        <div class="pay-method-content" id="payCrypto">
+          <div class="crypto-info-box">
+            <h4>Pay with Cryptocurrency</h4>
+            <p>Pay with Bitcoin, Ethereum, USDC, and other supported cryptocurrencies via Coinbase Commerce.</p>
+            <div class="crypto-coins">
+              <div class="crypto-coin">
+                <div class="crypto-coin-icon" style="background:#f7931a;color:#fff;">&#8383;</div>
+                <span>Bitcoin</span>
+              </div>
+              <div class="crypto-coin">
+                <div class="crypto-coin-icon" style="background:#627eea;color:#fff;">&Xi;</div>
+                <span>Ethereum</span>
+              </div>
+              <div class="crypto-coin">
+                <div class="crypto-coin-icon" style="background:#2775ca;color:#fff;">$</div>
+                <span>USDC</span>
+              </div>
+              <div class="crypto-coin">
+                <div class="crypto-coin-icon" style="background:#26a17b;color:#fff;">&#8366;</div>
+                <span>USDT</span>
+              </div>
+              <div class="crypto-coin">
+                <div class="crypto-coin-icon" style="background:#345d9d;color:#fff;">&#9830;</div>
+                <span>Litecoin</span>
+              </div>
+            </div>
+            <button class="btn-crypto" id="cryptoPayBtn" onclick="processCryptoPayment()">
+              <svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:currentColor;"><path d="M11.5 11.5v-2h1c.55 0 1 .45 1 1s-.45 1-1 1h-1zm0 1h1c.55 0 1 .45 1 1s-.45 1-1 1h-1v-2z"/></svg>
+              Pay with Crypto
+            </button>
+            <div class="crypto-status" id="cryptoStatus"></div>
+          </div>
+          <div class="secure-badge" style="justify-content:center;">
+            <svg viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z"/></svg>
+            Powered by Coinbase Commerce
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ORDER REVIEW -->
+      <div class="review-box">
+        <h4>📋 Order Review</h4>
+        <div id="reviewLines"></div>
+        <div class="review-total">
+          <span>Total Due</span>
+          <span id="reviewTotal">$0.00</span>
+        </div>
+        <div style="margin-top:20px;padding:14px;background:rgba(196,18,48,0.08);border:1px solid rgba(196,18,48,0.2);border-radius:8px;font-size:13px;color:rgba(255,255,255,0.8);line-height:1.6;">
+          <strong style="color:var(--red);display:block;margin-bottom:4px;">📦 What Happens Next</strong>
+          After payment, you'll receive a prepaid USPS mailing label. Pack your items, attach the label, and drop off at any USPS location.
+        </div>
+      </div>
+    </div>
+
+    <div class="step-nav">
+      <button class="btn-outline" onclick="goToStep(2)">← Back</button>
+      <button class="btn-primary" id="payBtn" onclick="processPayment()">
+        <span id="payBtnText">Pay &amp; Generate Label</span>
+        <span id="paySpinner" style="display:none;" class="spinner"></span>
+      </button>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       STEP 4 — MAILING LABEL
+  ══════════════════════════════════════════ -->
+  <div class="step-panel" id="step4">
+    <div class="success-header">
+      <div class="success-icon">✅</div>
+      <h1 class="panel-title" style="text-align:center;">Order <span>Confirmed!</span></h1>
+      <p class="panel-sub" style="text-align:center;max-width:560px;margin:0 auto 40px;">
+        Your order has been received. Print or save the mailing label below, pack your items securely, and drop them off at any USPS location.
+      </p>
+    </div>
+
+    <!-- ── MAILING LABEL CARD ── -->
+    <div class="label-card" id="mailingLabel">
+
+      <!-- Red header band -->
+      <div class="label-header-band">
+        <div>
+          <div class="label-logo-text">✂ The Sharp Shoppe</div>
+          <div class="label-logo-sub">Professional Mail-In Sharpening Service</div>
+        </div>
+        <div class="label-order-badge" id="labelOrderNum">ORDER #TSS-000000</div>
+      </div>
+
+      <!-- Addresses -->
+      <div class="label-body">
+        <div class="label-to-from">
+          <div class="label-section">
+            <div class="label-section-title">SHIP FROM (YOU)</div>
+            <div class="label-address" id="labelFrom">—</div>
+          </div>
+          <div class="label-section">
+            <div class="label-section-title">SHIP TO (SHARP SHOPPE)</div>
+            <div class="label-address">
+              The Sharp Shoppe<br>
+              230 Phoenix Blvd NW<br>
+              Christiansburg, VA 24073
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Barcode strip -->
+      <div class="label-barcode-strip">
+        <div class="label-barcode-wrap">
+          <svg id="labelBarcode"></svg>
+          <div class="label-tracking-num" id="labelTrackingNum">Tracking # will appear after payment</div>
+        </div>
+        <div class="label-stamp">
+          <div class="stamp-carrier">USPS</div>
+          <div class="stamp-service">PRIORITY MAIL</div>
+          <div class="stamp-date" id="labelStampDate"></div>
+        </div>
+      </div>
+
+      <!-- Items enclosed table -->
+      <div class="label-items-section">
+        <div class="label-items-title">Items Enclosed</div>
+        <table class="label-items-table">
+          <thead>
+            <tr>
+              <th>Service</th>
+              <th>Qty</th>
+              <th>Unit Price</th>
+              <th>Subtotal</th>
+            </tr>
+          </thead>
+          <tbody id="labelItemsBody"></tbody>
+          <tfoot>
+            <tr class="label-total-row">
+              <td colspan="3">Order Total</td>
+              <td id="labelTotalCell">$0.00</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      <!-- Shipping info row -->
+      <div class="label-shipping-info" id="labelShippingInfo">
+        <span><strong>Carrier:</strong> USPS</span>
+        <span><strong>Service:</strong> <span id="labelService">Priority Mail</span></span>
+        <span><strong>Est. Delivery:</strong> <span id="labelETA">2–3 business days</span></span>
+        <span><strong>Postage:</strong> <span id="labelPostage">Prepaid</span></span>
+        <span><strong>Order Date:</strong> <span id="labelOrderDate"></span></span>
+      </div>
+
+      <!-- Live Shippo label download (shown when API key configured) -->
+      <div class="label-live-embed" id="liveLabelSection" style="display:none;">
+        <a id="liveLabelLink" href="#" target="_blank">
+          <svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:currentColor"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+          Download Official USPS Label (PDF)
+        </a>
+        <div class="label-live-note">This is your official prepaid USPS label with paid postage. Print and attach to your package.</div>
+      </div>
+
+      <!-- Footer strip -->
+      <div class="label-footer-strip">
+        <strong>PACKING REMINDER:</strong> Wrap each blade in cardboard or bubble wrap. Use a sturdy box — no envelopes. Tape all seams securely. Attach this label to the outside of the box.<br>
+        Questions? <strong>thesharpshoppe@gmail.com</strong> &nbsp;|&nbsp; <strong>(855) 301-5586</strong> &nbsp;|&nbsp; <strong>thesharpshoppe.com</strong>
+      </div>
+    </div><!-- /.label-card -->
+
+    <!-- PACKING TIPS ALERT -->
+    <div class="alert alert-warn" style="max-width:680px;margin:0 auto 30px;">
+      <svg viewBox="0 0 24 24" style="width:20px;height:20px;fill:currentColor;flex-shrink:0"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>
+      <div>
+        <strong>How to Ship:</strong> Pack all items in a sturdy box. Wrap each blade individually in cardboard or bubble wrap. Do <em>not</em> use envelopes or padded mailers for knives. Tape all seams. Print the label and tape it flat to the top of the box. Drop off at any USPS Post Office or schedule a free pickup at <a href="https://www.usps.com/pickup" target="_blank" style="color:var(--red);">usps.com/pickup</a>.
+      </div>
+    </div>
+
+    <!-- ACTION BUTTONS -->
+    <div class="label-actions" style="margin-bottom:20px;">
+      <button class="btn-primary" onclick="downloadLabel()" id="downloadPdfBtn">
+        <svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:currentColor"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+        Download Label PDF
+      </button>
+      <button class="btn-download" onclick="window.print()">
+        <svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:currentColor"><path d="M19 8H5c-1.66 0-3 1.34-3 3v6h4v4h12v-4h4v-6c0-1.66-1.34-3-3-3zm-3 11H8v-5h8v5zm3-7c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm-1-9H6v4h12V3z"/></svg>
+        Print Label
+      </button>
+      <a href="index.html" class="btn-download">
+        <svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:currentColor"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+        Back to Home
+      </a>
+    </div>
+
+    <!-- CONFIRMATION NOTE -->
+    <p style="text-align:center;color:var(--gray);font-size:13px;margin-top:10px;margin-bottom:40px;">
+      A confirmation email with your label has been sent to <strong id="confirmEmail">your email</strong>.<br>
+      Questions? <a href="mailto:thesharpshoppe@gmail.com" style="color:var(--red);">thesharpshoppe@gmail.com</a> &nbsp;|&nbsp; <a href="tel:+18553015586" style="color:var(--red);">(855) 301-5586</a>
+    </p>
+  </div>
+
+</div><!-- /portal-wrap -->
+
+<script>
+// ════════════════════════════════════════════
+// STATE
+// ════════════════════════════════════════════
+let currentStep = 1;
+let orderTotal = 0;
+let discountAmount = 0;
+let discountApplied = false;
+const PROMO_CODES = { 'SHARP25': 0.25, 'WELCOME10': 0.10, 'FIRSTORDER': 0.15 };
+
+// Customer data object — saved for ad campaigns
+let customerData = {
+  firstName: '', lastName: '', email: '', phone: '',
+  address: '', city: '', state: '', zip: '',
+  orderItems: [], orderTotal: 0, orderDate: '', orderNumber: ''
+};
+
+// ════════════════════════════════════════════
+// STEP NAVIGATION
+// ════════════════════════════════════════════
+function goToStep(n) {
+  if (n === 2 && !validateStep1()) return;
+  if (n === 3 && !validateStep2()) return;
+
+  // Hide all panels
+  document.querySelectorAll('.step-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('step' + n).classList.add('active');
+
+  // Update progress indicators
+  document.querySelectorAll('.step-item').forEach(item => {
+    const s = parseInt(item.dataset.step);
+    item.classList.remove('active', 'done');
+    if (s < n) item.classList.add('done');
+    else if (s === n) item.classList.add('active');
+  });
+
+  // Update progress line
+  const steps = document.querySelectorAll('.step-item');
+  const totalSteps = steps.length;
+  const pct = ((n - 1) / (totalSteps - 1)) * 100;
+  document.getElementById('progressLine').style.width = pct + '%';
+
+  // Update done circles to checkmarks
+  document.querySelectorAll('.step-item.done .step-circle').forEach(c => {
+    if (!c.dataset.orig) c.dataset.orig = c.textContent;
+    c.textContent = '✓';
+  });
+
+  currentStep = n;
+
+  if (n === 3) buildReviewPanel();
+  if (n === 4) buildLabel();
+
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ════════════════════════════════════════════
+// VALIDATION
+// ════════════════════════════════════════════
+function validateStep1() {
+  const fn = document.getElementById('firstName').value.trim();
+  const ln = document.getElementById('lastName').value.trim();
+  const em = document.getElementById('emailAddr').value.trim();
+  const a1 = document.getElementById('addrLine1').value.trim();
+  const ci = document.getElementById('addrCity').value.trim();
+  const st = document.getElementById('addrState').value;
+  const zp = document.getElementById('addrZip').value.trim();
+
+  if (!fn || !ln) { alert('Please enter your first and last name.'); return false; }
+  if (!em || !em.includes('@')) { alert('Please enter a valid email address.'); return false; }
+  if (!a1 || !ci || !st || !zp) { alert('Please fill in your complete shipping address.'); return false; }
+
+  // Save to customerData
+  customerData.firstName = fn;
+  customerData.lastName = ln;
+  customerData.email = em;
+  customerData.phone = document.getElementById('phoneNum').value.trim();
+  customerData.address = a1;
+  customerData.city = ci;
+  customerData.state = st;
+  customerData.zip = zp;
+
+  return true;
+}
+
+function validateStep2() {
+  const rows = document.querySelectorAll('.service-row[data-price]');
+  let hasItems = false;
+  rows.forEach(row => {
+    const qty = parseInt(row.querySelector('.qty-display').textContent);
+    if (qty > 0) hasItems = true;
+  });
+  if (!hasItems) { alert('Please select at least one service before continuing.'); return false; }
+  if (orderTotal < 20) { alert('Minimum order is $20. Please add more items.'); return false; }
+  return true;
+}
+
+// ════════════════════════════════════════════
+// QUANTITY CONTROLS
+// ════════════════════════════════════════════
+function changeQty(btn, delta) {
+  const row = btn.closest('.service-row');
+  const display = row.querySelector('.qty-display');
+  let qty = parseInt(display.textContent) + delta;
+  if (qty < 0) qty = 0;
+  display.textContent = qty;
+
+  // Highlight row if has items
+  if (qty > 0) row.classList.add('has-items');
+  else row.classList.remove('has-items');
+
+  recalcTotal();
+}
+
+function recalcTotal() {
+  const rows = document.querySelectorAll('.service-row[data-price]');
+  let subtotal = 0;
+  const lines = [];
+
+  rows.forEach(row => {
+    const qty = parseInt(row.querySelector('.qty-display').textContent);
+    if (qty > 0) {
+      const price = parseFloat(row.dataset.price);
+      const name = row.dataset.service;
+      const lineTotal = qty * price;
+      subtotal += lineTotal;
+      lines.push({ name, qty, price, lineTotal });
+    }
+  });
+
+  // Apply discount
+  discountAmount = discountApplied ? subtotal * discountApplied : 0;
+  orderTotal = subtotal - discountAmount;
+
+  // Update summary
+  const summaryLines = document.getElementById('summaryLines');
+  const summaryEmpty = document.getElementById('summaryEmpty');
+  const summaryTotal = document.getElementById('summaryTotal');
+  const totalDisplay = document.getElementById('totalDisplay');
+
+  if (lines.length === 0) {
+    summaryEmpty.style.display = 'block';
+    summaryTotal.style.display = 'none';
+    summaryLines.innerHTML = '<div class="summary-empty" id="summaryEmpty">No items selected yet.</div>';
+  } else {
+    let html = '';
+    lines.forEach(l => {
+      html += `<div class="summary-line"><span>${l.qty}× ${l.name}</span><span>$${l.lineTotal.toFixed(2)}</span></div>`;
+    });
+    if (discountAmount > 0) {
+      html += `<div class="summary-line discount-line"><span>Discount (${Math.round(discountApplied*100)}% off)</span><span>−$${discountAmount.toFixed(2)}</span></div>`;
+    }
+    summaryLines.innerHTML = html;
+    summaryTotal.style.display = 'flex';
+    totalDisplay.textContent = '$' + orderTotal.toFixed(2);
+  }
+
+  // Save to customerData
+  customerData.orderItems = lines;
+  customerData.orderTotal = orderTotal;
+}
+
+// ════════════════════════════════════════════
+// PROMO CODE
+// ════════════════════════════════════════════
+function applyPromo() {
+  const code = document.getElementById('promoCode').value.trim().toUpperCase();
+  const msg = document.getElementById('promoMsg');
+
+  if (PROMO_CODES[code]) {
+    discountApplied = PROMO_CODES[code];
+    msg.className = 'promo-msg success';
+    msg.textContent = `✓ Code applied! ${Math.round(discountApplied*100)}% off your order.`;
+    recalcTotal();
+  } else {
+    discountApplied = false;
+    msg.className = 'promo-msg error';
+    msg.textContent = '✗ Invalid promo code. Try SHARP25 for 25% off!';
+    recalcTotal();
+  }
+}
+
+// ════════════════════════════════════════════
+// PAYMENT METHOD TABS
+// ════════════════════════════════════════════
+let activePayMethod = 'card';
+let paypalInitialized = false;
+
+function switchPayMethod(method) {
+  activePayMethod = method;
+  // Update tabs
+  document.querySelectorAll('.pay-method-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab' + method.charAt(0).toUpperCase() + method.slice(1)).classList.add('active');
+  // Update content panels
+  document.querySelectorAll('.pay-method-content').forEach(c => c.classList.remove('active'));
+  const panelMap = { card: 'payCard', paypal: 'payPaypal', crypto: 'payCrypto' };
+  document.getElementById(panelMap[method]).classList.add('active');
+  // Show/hide the Pay button (only for card; PayPal and Crypto have their own buttons)
+  const payBtn = document.getElementById('payBtn');
+  if (method === 'card') {
+    payBtn.style.display = 'inline-flex';
+  } else {
+    payBtn.style.display = 'none';
+  }
+  // Init PayPal buttons when switching to PayPal tab
+  if (method === 'paypal' && !paypalInitialized) {
+    initPayPalButtons();
+  }
+}
+
+// ════════════════════════════════════════════
+// BUILD REVIEW PANEL (Step 3)
+// ════════════════════════════════════════════
+function buildReviewPanel() {
+  const reviewLines = document.getElementById('reviewLines');
+  const reviewTotal = document.getElementById('reviewTotal');
+  let html = '';
+
+  customerData.orderItems.forEach(l => {
+    html += `<div class="review-item"><span>${l.qty}\u00d7 ${l.name}</span><span>$${l.lineTotal.toFixed(2)}</span></div>`;
+  });
+  if (discountAmount > 0) {
+    html += `<div class="review-item" style="color:#4caf50;"><span>Discount</span><span>\u2212$${discountAmount.toFixed(2)}</span></div>`;
+  }
+  reviewLines.innerHTML = html;
+  reviewTotal.textContent = '$' + orderTotal.toFixed(2);
+
+  // Init Stripe
+  initStripe();
+  // Reset to card tab
+  switchPayMethod('card');
+}
+
+// ════════════════════════════════════════════
+// STRIPE PAYMENT (Card)
+// ════════════════════════════════════════════
+let stripe, cardNumberElement, cardExpiryElement, cardCvcElement;
+
+function initStripe() {
+  if (stripe) return;
+  // NOTE: Replace with your actual Stripe publishable key
+  stripe = Stripe('pk_test_YOUR_STRIPE_PUBLISHABLE_KEY');
+  const elements = stripe.elements();
+
+  const elementStyle = {
+    base: { color: '#ffffff', fontFamily: 'Open Sans, sans-serif', fontSize: '15px', '::placeholder': { color: '#666' } },
+    invalid: { color: '#f44336' }
+  };
+
+  // Card Number
+  cardNumberElement = elements.create('cardNumber', { style: elementStyle, placeholder: '1234 5678 9012 3456' });
+  cardNumberElement.mount('#card-number-element');
+  cardNumberElement.on('change', e => {
+    document.getElementById('card-errors').textContent = e.error ? e.error.message : '';
+  });
+  cardNumberElement.on('focus', () => { document.getElementById('card-number-element').style.borderColor = 'var(--red)'; });
+  cardNumberElement.on('blur', () => { document.getElementById('card-number-element').style.borderColor = 'var(--border)'; });
+
+  // Expiration Date
+  cardExpiryElement = elements.create('cardExpiry', { style: elementStyle, placeholder: 'MM / YY' });
+  cardExpiryElement.mount('#card-expiry-element');
+  cardExpiryElement.on('change', e => {
+    if (e.error) document.getElementById('card-errors').textContent = e.error.message;
+  });
+  cardExpiryElement.on('focus', () => { document.getElementById('card-expiry-element').style.borderColor = 'var(--red)'; });
+  cardExpiryElement.on('blur', () => { document.getElementById('card-expiry-element').style.borderColor = 'var(--border)'; });
+
+  // Security Code (CVC)
+  cardCvcElement = elements.create('cardCvc', { style: elementStyle, placeholder: 'CVV' });
+  cardCvcElement.mount('#card-cvc-element');
+  cardCvcElement.on('change', e => {
+    if (e.error) document.getElementById('card-errors').textContent = e.error.message;
+  });
+  cardCvcElement.on('focus', () => { document.getElementById('card-cvc-element').style.borderColor = 'var(--red)'; });
+  cardCvcElement.on('blur', () => { document.getElementById('card-cvc-element').style.borderColor = 'var(--border)'; });
+}
+
+async function processPayment() {
+  const btn = document.getElementById('payBtn');
+  const btnText = document.getElementById('payBtnText');
+  const spinner = document.getElementById('paySpinner');
+
+  btn.disabled = true;
+  btnText.style.display = 'none';
+  spinner.style.display = 'inline-block';
+
+  // In production: create PaymentIntent on your server, confirm here.
+  // For demo: simulate a 2-second payment processing delay.
+  await new Promise(r => setTimeout(r, 2000));
+
+  completeOrder('card');
+
+  btn.disabled = false;
+  btnText.style.display = 'inline';
+  spinner.style.display = 'none';
+}
+
+// ════════════════════════════════════════════
+// PAYPAL PAYMENT
+// ════════════════════════════════════════════
+function initPayPalButtons() {
+  if (paypalInitialized) return;
+  if (typeof paypal === 'undefined') {
+    console.warn('PayPal SDK not loaded');
+    document.getElementById('paypal-button-container').innerHTML =
+      '<p style="color:#f44336;text-align:center;">PayPal SDK failed to load. Please refresh the page.</p>';
+    return;
+  }
+  paypalInitialized = true;
+  paypal.Buttons({
+    style: {
+      layout: 'vertical',
+      color: 'gold',
+      shape: 'rect',
+      label: 'paypal',
+      height: 48
+    },
+    createOrder: function(data, actions) {
+      return actions.order.create({
+        purchase_units: [{
+          description: 'The Sharp Shoppe — Blade Sharpening Service',
+          amount: {
+            currency_code: 'USD',
+            value: orderTotal.toFixed(2),
+            breakdown: {
+              item_total: { currency_code: 'USD', value: orderTotal.toFixed(2) }
+            }
+          },
+          items: customerData.orderItems.map(item => ({
+            name: item.name,
+            unit_amount: { currency_code: 'USD', value: item.price.toFixed(2) },
+            quantity: String(item.qty),
+            category: 'PHYSICAL_GOODS'
+          }))
+        }],
+        application_context: {
+          brand_name: 'The Sharp Shoppe',
+          shipping_preference: 'SET_PROVIDED_ADDRESS',
+          user_action: 'PAY_NOW'
+        }
+      });
+    },
+    onApprove: function(data, actions) {
+      return actions.order.capture().then(function(details) {
+        console.log('PayPal payment captured:', details);
+        completeOrder('paypal', details.id);
+      });
+    },
+    onError: function(err) {
+      console.error('PayPal error:', err);
+      alert('PayPal payment failed. Please try again or use a different payment method.');
+    },
+    onCancel: function() {
+      console.log('PayPal payment cancelled by user');
+    }
+  }).render('#paypal-button-container');
+}
+
+// ════════════════════════════════════════════
+// CRYPTO PAYMENT (Coinbase Commerce)
+// ════════════════════════════════════════════
+// Coinbase Commerce API key is stored securely on the backend (label-server.js)
+
+async function processCryptoPayment() {
+  const btn = document.getElementById('cryptoPayBtn');
+  const status = document.getElementById('cryptoStatus');
+  btn.disabled = true;
+  status.textContent = 'Creating crypto charge...';
+  status.style.color = 'var(--gray)';
+
+  try {
+    // Create charge via backend
+    const resp = await fetch('/create-crypto-charge', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: 'The Sharp Shoppe — Blade Sharpening',
+        description: customerData.orderItems.map(i => i.qty + 'x ' + i.name).join(', '),
+        amount: orderTotal.toFixed(2),
+        currency: 'USD',
+        customer: {
+          name: customerData.firstName + ' ' + customerData.lastName,
+          email: customerData.email
+        }
+      })
+    });
+
+    const data = await resp.json();
+
+    if (data.success && data.hosted_url) {
+      status.innerHTML = 'Redirecting to Coinbase Commerce...';
+      // Open Coinbase Commerce hosted checkout in new window
+      const cryptoWindow = window.open(data.hosted_url, '_blank');
+      status.innerHTML = `
+        <a href="${data.hosted_url}" target="_blank" style="color:var(--red);text-decoration:underline;">
+          Click here if the payment window didn't open
+        </a><br>
+        <span style="font-size:12px;margin-top:8px;display:inline-block;">Complete payment in the Coinbase Commerce window, then return here.</span>
+      `;
+      // Poll for payment completion
+      if (data.charge_id) {
+        pollCryptoPayment(data.charge_id);
+      }
+    } else if (data.demo) {
+      // Demo mode
+      status.textContent = 'Demo mode: Coinbase Commerce API key not configured.';
+      status.style.color = '#ff9800';
+      // Simulate success after delay
+      await new Promise(r => setTimeout(r, 2000));
+      completeOrder('crypto', 'DEMO-CRYPTO-' + Date.now());
+    } else {
+      throw new Error(data.error || 'Failed to create crypto charge');
+    }
+  } catch (err) {
+    console.error('Crypto payment error:', err);
+    status.textContent = 'Crypto payment unavailable. Coinbase Commerce is being set up.';
+    status.style.color = '#ff9800';
+    // Fallback: simulate for demo
+    await new Promise(r => setTimeout(r, 2000));
+    completeOrder('crypto', 'DEMO-CRYPTO-' + Date.now());
+  }
+  btn.disabled = false;
+}
+
+async function pollCryptoPayment(chargeId) {
+  const status = document.getElementById('cryptoStatus');
+  let attempts = 0;
+  const maxAttempts = 60; // Poll for 5 minutes (every 5 seconds)
+
+  const poll = setInterval(async () => {
+    attempts++;
+    if (attempts > maxAttempts) {
+      clearInterval(poll);
+      status.innerHTML += '<br><span style="color:#ff9800;">Payment check timed out. If you completed payment, please contact us.</span>';
+      return;
+    }
+    try {
+      const resp = await fetch(`/check-crypto-charge/${chargeId}`);
+      const data = await resp.json();
+      if (data.status === 'COMPLETED' || data.status === 'CONFIRMED') {
+        clearInterval(poll);
+        completeOrder('crypto', chargeId);
+      }
+    } catch (e) {
+      // Silently continue polling
+    }
+  }, 5000);
+}
+
+// ════════════════════════════════════════════
+// COMPLETE ORDER (shared by all payment methods)
+// ════════════════════════════════════════════
+function completeOrder(method, transactionId) {
+  const orderNum = 'TSS-' + Date.now().toString().slice(-6);
+  customerData.orderNumber = orderNum;
+  customerData.orderDate = new Date().toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' });
+  customerData.paymentMethod = method;
+  customerData.transactionId = transactionId || 'N/A';
+
+  // Save customer to localStorage (for ad campaign export)
+  saveCustomerData(customerData);
+
+  goToStep(4);
+}
+
+// ════════════════════════════════════════════
+// CUSTOMER DATA STORAGE (Ad Campaign Export)
+// ════════════════════════════════════════════
+function saveCustomerData(data) {
+  let customers = JSON.parse(localStorage.getItem('sharpShoppe_customers') || '[]');
+  customers.push({
+    orderNumber: data.orderNumber,
+    orderDate: data.orderDate,
+    name: data.firstName + ' ' + data.lastName,
+    email: data.email,
+    phone: data.phone,
+    address: data.address + ', ' + data.city + ', ' + data.state + ' ' + data.zip,
+    items: data.orderItems.map(i => i.qty + 'x ' + i.name).join('; '),
+    total: '$' + data.orderTotal.toFixed(2),
+    paymentMethod: data.paymentMethod || 'card',
+    transactionId: data.transactionId || 'N/A'
+  });
+  localStorage.setItem('sharpShoppe_customers', JSON.stringify(customers));
+}
+
+// ════════════════════════════════════════════
+// BUILD MAILING LABEL (Step 4)
+// ════════════════════════════════════════════
+async function buildLabel() {
+  const { firstName, lastName, address, city, state, zip, email,
+          orderItems, orderNumber, orderDate, orderTotal } = customerData;
+
+  // ─ Header badge
+  document.getElementById('labelOrderNum').textContent = 'ORDER #' + orderNumber;
+
+  // ─ Ship From address
+  document.getElementById('labelFrom').innerHTML =
+    `${firstName} ${lastName}<br>${address}<br>${city}, ${state} ${zip}`;
+
+  // ─ Items table
+  const tbody = document.getElementById('labelItemsBody');
+  tbody.innerHTML = orderItems.map(i =>
+    `<tr>
+      <td>${i.name}</td>
+      <td>${i.qty}</td>
+      <td>$${i.price.toFixed(2)}</td>
+      <td>$${i.lineTotal.toFixed(2)}</td>
+    </tr>`
+  ).join('');
+  document.getElementById('labelTotalCell').textContent = '$' + orderTotal.toFixed(2);
+
+  // ─ Shipping meta
+  document.getElementById('labelOrderDate').textContent = orderDate;
+  document.getElementById('labelStampDate').textContent = orderDate;
+
+  // ─ Confirmation email
+  document.getElementById('confirmEmail').textContent = email;
+
+  // ─ Generate barcode (Code 128 — USPS-compatible format)
+  // Use order number + timestamp as tracking placeholder until Shippo responds
+  const barcodeValue = orderNumber.replace('TSS-', '9400111899') + '00';
+  try {
+    JsBarcode('#labelBarcode', barcodeValue, {
+      format: 'CODE128',
+      width: 2,
+      height: 55,
+      displayValue: false,
+      margin: 0,
+      background: '#f5f5f5'
+    });
+    document.getElementById('labelTrackingNum').textContent =
+      'Tracking: ' + barcodeValue.replace(/(\d{4})/g, '$1 ').trim();
+  } catch(e) {
+    document.getElementById('labelTrackingNum').textContent = 'Order: ' + orderNumber;
+  }
+
+  // ─ Request real USPS label from Shippo backend
+  try {
+    const resp = await fetch('/create-label', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        customer: { firstName, lastName, address, city, state, zip, email,
+                    phone: customerData.phone },
+        items: orderItems,
+        orderNumber
+      })
+    });
+    const data = await resp.json();
+
+    if (data.success && !data.demo) {
+      // Live Shippo label received
+      const realTracking = data.trackingNumber;
+      document.getElementById('labelTrackingNum').textContent =
+        'Tracking: ' + realTracking;
+
+      // Re-render barcode with real tracking number
+      try {
+        JsBarcode('#labelBarcode', realTracking, {
+          format: 'CODE128', width: 2, height: 55,
+          displayValue: false, margin: 0, background: '#f5f5f5'
+        });
+      } catch(e) {}
+
+      // Update shipping info
+      document.getElementById('labelService').textContent =
+        data.service || 'Priority Mail';
+      document.getElementById('labelETA').textContent =
+        (data.estimatedDays ? data.estimatedDays + ' business days' : '2–3 business days');
+      document.getElementById('labelPostage').textContent =
+        'Prepaid (≈$' + parseFloat(data.rate).toFixed(2) + ')';
+
+      // Show official label download button
+      if (data.labelUrl) {
+        document.getElementById('liveLabelLink').href = data.labelUrl;
+        document.getElementById('liveLabelSection').style.display = 'block';
+        document.getElementById('downloadPdfBtn').style.display = 'none';
+      }
+    } else if (data.demo) {
+      // Demo mode — show info
+      document.getElementById('labelPostage').textContent = 'Prepaid (demo mode)';
+      document.getElementById('labelService').textContent = 'Priority Mail (demo)';
+    }
+  } catch(e) {
+    // Backend not reachable — label still works with barcode placeholder
+    console.log('Label server not reachable, using demo barcode:', e.message);
+  }
+}
+
+// ════════════════════════════════════════════
+// DOWNLOAD LABEL AS PDF (expanded, full-width, with barcode)
+// ════════════════════════════════════════════
+function downloadLabel() {
+  const { jsPDF } = window.jspdf;
+  // 4x6 landscape label (standard shipping label size)
+  const W = 6, H = 4;
+  const doc = new jsPDF({ unit: 'in', format: [W, H], orientation: 'landscape' });
+
+  const { firstName, lastName, address, city, state, zip,
+          orderItems, orderNumber, orderDate, orderTotal, phone, email } = customerData;
+
+  // ── Background
+  doc.setFillColor(255, 255, 255);
+  doc.rect(0, 0, W, H, 'F');
+
+  // ── Red header band
+  doc.setFillColor(196, 18, 48);
+  doc.rect(0, 0, W, 0.65, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(15);
+  doc.text('THE SHARP SHOPPE', 0.22, 0.35);
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'normal');
+  doc.text('Professional Mail-In Sharpening Service', 0.22, 0.52);
+  // Order number right-aligned
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'bold');
+  doc.text('ORDER #' + orderNumber, W - 0.22, 0.35, { align: 'right' });
+  doc.setFontSize(7.5);
+  doc.setFont('helvetica', 'normal');
+  doc.text(orderDate, W - 0.22, 0.52, { align: 'right' });
+
+  // ── FROM address (left column)
+  const col1 = 0.22, col2 = W / 2 + 0.1;
+  doc.setTextColor(120, 120, 120);
+  doc.setFontSize(7);
+  doc.setFont('helvetica', 'bold');
+  doc.text('SHIP FROM (YOU)', col1, 0.92);
+  doc.setTextColor(20, 20, 20);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(11);
+  doc.text(firstName + ' ' + lastName, col1, 1.12);
+  doc.setFontSize(9.5);
+  doc.text(address, col1, 1.28);
+  doc.text(city + ', ' + state + ' ' + zip, col1, 1.44);
+  if (phone) { doc.setFontSize(8.5); doc.text(phone, col1, 1.58); }
+
+  // ── TO address (right column)
+  doc.setTextColor(120, 120, 120);
+  doc.setFontSize(7);
+  doc.setFont('helvetica', 'bold');
+  doc.text('SHIP TO (SHARP SHOPPE)', col2, 0.92);
+  doc.setTextColor(20, 20, 20);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(11);
+  doc.text('The Sharp Shoppe', col2, 1.12);
+  doc.setFontSize(9.5);
+  doc.text('230 Phoenix Blvd NW', col2, 1.28);
+  doc.text('Christiansburg, VA 24073', col2, 1.44);
+  doc.setFontSize(8.5);
+  doc.text('(855) 301-5586', col2, 1.58);
+
+  // ── USPS stamp box (top-right)
+  doc.setFillColor(196, 18, 48);
+  doc.roundedRect(W - 1.5, 0.75, 1.28, 0.95, 0.08, 0.08, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(13);
+  doc.text('USPS', W - 0.86, 1.05, { align: 'center' });
+  doc.setFontSize(7.5);
+  doc.text('PRIORITY MAIL', W - 0.86, 1.22, { align: 'center' });
+  doc.setFontSize(6.5);
+  doc.setFont('helvetica', 'normal');
+  doc.text('PREPAID POSTAGE', W - 0.86, 1.36, { align: 'center' });
+  doc.text(orderDate, W - 0.86, 1.52, { align: 'center' });
+
+  // ── Divider
+  doc.setDrawColor(210, 210, 210);
+  doc.setLineWidth(0.01);
+  doc.line(0.22, 1.72, W - 0.22, 1.72);
+
+  // ── Barcode (Code 128)
+  const barcodeValue = orderNumber.replace('TSS-', '9400111899') + '00';
+  const barcodeCanvas = document.createElement('canvas');
+  try {
+    JsBarcode(barcodeCanvas, barcodeValue, {
+      format: 'CODE128', width: 2, height: 50,
+      displayValue: false, margin: 0, background: '#ffffff'
+    });
+    const barcodeDataUrl = barcodeCanvas.toDataURL('image/png');
+    doc.addImage(barcodeDataUrl, 'PNG', 0.22, 1.78, 3.5, 0.55);
+    doc.setTextColor(80, 80, 80);
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'normal');
+    doc.text(barcodeValue.replace(/(\d{4})/g, '$1 ').trim(), 0.22, 2.42);
+  } catch(e) {
+    doc.setTextColor(80, 80, 80);
+    doc.setFontSize(8);
+    doc.text('Tracking: ' + barcodeValue, 0.22, 2.1);
+  }
+
+  // ── Items table
+  doc.setTextColor(120, 120, 120);
+  doc.setFontSize(7);
+  doc.setFont('helvetica', 'bold');
+  doc.text('ITEMS ENCLOSED', 0.22, 2.6);
+
+  // Table header
+  doc.setFontSize(7);
+  doc.setTextColor(140, 140, 140);
+  doc.text('SERVICE', 0.22, 2.74);
+  doc.text('QTY', 3.2, 2.74);
+  doc.text('UNIT', 3.7, 2.74);
+  doc.text('SUBTOTAL', 4.8, 2.74);
+  doc.setDrawColor(210, 210, 210);
+  doc.line(0.22, 2.78, W - 0.22, 2.78);
+
+  let yRow = 2.9;
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(20, 20, 20);
+  doc.setFontSize(8.5);
+  orderItems.forEach(item => {
+    doc.text(item.name, 0.22, yRow);
+    doc.text(String(item.qty), 3.2, yRow);
+    doc.text('$' + item.price.toFixed(2), 3.7, yRow);
+    doc.text('$' + item.lineTotal.toFixed(2), 4.8, yRow);
+    yRow += 0.17;
+  });
+
+  // Total line
+  doc.setDrawColor(210, 210, 210);
+  doc.line(0.22, yRow + 0.02, W - 0.22, yRow + 0.02);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
+  doc.setTextColor(196, 18, 48);
+  doc.text('ORDER TOTAL', 0.22, yRow + 0.18);
+  doc.text('$' + orderTotal.toFixed(2), 4.8, yRow + 0.18);
+
+  // ── Footer strip
+  const footerY = H - 0.48;
+  doc.setFillColor(240, 240, 240);
+  doc.rect(0, footerY, W, 0.48, 'F');
+  doc.setTextColor(100, 100, 100);
+  doc.setFont('helvetica', 'italic');
+  doc.setFontSize(7);
+  doc.text(
+    'PACKING REMINDER: Wrap each blade in cardboard/bubble wrap. Use a sturdy box. Do not use envelopes. Tape all seams securely.',
+    0.22, footerY + 0.16
+  );
+  doc.text(
+    'Questions? thesharpshoppe@gmail.com  |  (855) 301-5586  |  thesharpshoppe.com',
+    0.22, footerY + 0.32
+  );
+
+  doc.save('SharpShoppe_MailingLabel_' + orderNumber + '.pdf');
+}
+
+// ════════════════════════════════════════════
+// BILLING ADDRESS TOGGLE
+// ════════════════════════════════════════════
+function toggleBillingFields() {
+  const same = document.getElementById('billingSame').checked;
+  document.getElementById('billingFields').style.display = same ? 'none' : 'block';
+}
+
+// ════════════════════════════════════════════
+// GOOGLE SIGN-IN
+// ════════════════════════════════════════════
+function triggerGoogleSignIn() {
+  google.accounts.id.initialize({
+    client_id: 'YOUR_GOOGLE_CLIENT_ID',
+    callback: handleGoogleSignIn
+  });
+  google.accounts.id.prompt();
+}
+
+function handleGoogleSignIn(response) {
+  // Decode JWT token
+  const payload = parseJwt(response.credential);
+  if (payload) {
+    document.getElementById('firstName').value = payload.given_name || '';
+    document.getElementById('lastName').value = payload.family_name || '';
+    document.getElementById('emailAddr').value = payload.email || '';
+    // Show success feedback
+    const btn = document.querySelector('.google-btn');
+    btn.style.background = '#e8f5e9';
+    btn.innerHTML = `<span style="color:#2e7d32;font-weight:700;">✓ Signed in as ${payload.name}</span>`;
+  }
+}
+
+function parseJwt(token) {
+  try {
+    return JSON.parse(atob(token.split('.')[1]));
+  } catch(e) { return null; }
+}
+
+// ════════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', () => {
+  recalcTotal();
+});
+</script>
+
+</body>
+</html>
+<script>
+// Auto-advance to a step via URL param for preview: ?step=2
+(function() {
+  const params = new URLSearchParams(window.location.search);
+  const s = parseInt(params.get('step'));
+  if (s && s >= 1 && s <= 4) {
+    window.addEventListener('DOMContentLoaded', () => {
+      // Bypass validation for preview
+      if (s >= 2) {
+        customerData.firstName = 'Jane'; customerData.lastName = 'Smith';
+        customerData.email = 'jane@example.com'; customerData.phone = '(555) 000-0000';
+        customerData.address = '123 Main St'; customerData.city = 'Springfield';
+        customerData.state = 'VA'; customerData.zip = '22001';
+        document.getElementById('firstName').value = 'Jane';
+        document.getElementById('lastName').value = 'Smith';
+        document.getElementById('emailAddr').value = 'jane@example.com';
+        document.getElementById('addrLine1').value = '123 Main St';
+        document.getElementById('addrCity').value = 'Springfield';
+        document.getElementById('addrState').value = 'VA';
+        document.getElementById('addrZip').value = '22001';
+      }
+      goToStep(s);
+    });
+  }
+})();
+</script>
